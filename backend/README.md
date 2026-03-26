@@ -29,3 +29,21 @@
   - `400` when code is missing or dependency input is invalid (details included).
   - `400` when dependency payload cannot be safely transformed into `Cargo.toml`.
   - `500` on compilation failures (stderr/diagnostics included).
+
+## Global Error Handling
+
+- All backend routes use a shared error middleware and return a consistent error shape:
+
+```json
+{
+  "message": "Validation failed",
+  "statusCode": 400,
+  "details": ["code is required"]
+}
+```
+
+- Notes:
+  - `details` is optional and primarily included for validation/client-actionable errors.
+  - Unknown errors default to `500` with a safe fallback.
+  - In production, internal `500` details are hidden to avoid leaking sensitive internals.
+  - Unknown routes return a structured `404` response using the same format.

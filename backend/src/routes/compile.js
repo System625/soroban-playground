@@ -3,6 +3,7 @@ import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
 import { sanitizeDependenciesInput, buildCargoToml } from "./compile_utils.js";
+import { asyncHandler, createHttpError } from "../middleware/errorHandler.js";
 
 const router = express.Router();
 
@@ -19,16 +20,22 @@ const router = express.Router();
 //   - Never overwrite soroban-sdk; ensure duplicates are deduped deterministically (sorted by name).
 //   - Keep TOML formatting minimal and deterministic to avoid build instability.
 
-router.post("/", async (req, res) => {
+router.post("/", asyncHandler(async (req, res, next) => {
   const { code, dependencies } = req.body || {};
   if (!code) {
-    return res.status(400).json({ error: "No code provided" });
+    return next(createHttpError(400, "No code provided"));
   }
 
   // Validate dependencies (optional and backward compatible)
   const depValidation = sanitizeDependenciesInput(dependencies);
   if (!depValidation.ok) {
-    return res.status(400).json(depValidation.details ? { error: depValidation.error, details: depValidation.details } : { error: depValidation.error });
+    return next(
+      createHttpError(
+        400,
+        depValidation.error,
+        depValidation.details
+      )
+    );
   }
 
   // Define a temporary working directory for this compilation
@@ -45,10 +52,9 @@ router.post("/", async (req, res) => {
     try {
       cargoToml = buildCargoToml(depValidation.deps);
     } catch (injectionErr) {
-      return res.status(400).json({
-        error: "Failed to build Cargo.toml from dependencies",
-        details: injectionErr.message
-      });
+      return next(
+        createHttpError(400, "Failed to build Cargo.toml from dependencies", injectionErr.message)
+      );
     }
     await fs.writeFile(path.join(tempDir, "Cargo.toml"), cargoToml);
 
@@ -71,12 +77,12 @@ router.post("/", async (req, res) => {
 
       if (err) {
         await cleanUp();
-        return res.status(500).json({ 
-          error: "Compilation failed", 
-          status: "error",
-          details: stderr || err.message,
-          logs: stderr ? stderr.split('\n').filter(l => l.trim()) : []
-        });
+        return next(
+          createHttpError(500, "Compilation failed", {
+            details: stderr || err.message,
+            logs: stderr ? stderr.split("\n").filter((l) => l.trim()) : []
+          })
+        );
       }
 
       // Check if wasm exists
@@ -98,19 +104,19 @@ router.post("/", async (req, res) => {
         });
       } catch (e) {
         await cleanUp();
-        return res.status(500).json({ 
-          error: "WASM file not generated", 
-          status: "error",
-          details: stderr || e.message,
-          logs: stderr ? stderr.split('\n').filter(l => l.trim()) : []
-        });
+        return next(
+          createHttpError(500, "WASM file not generated", {
+            details: stderr || e.message,
+            logs: stderr ? stderr.split("\n").filter((l) => l.trim()) : []
+          })
+        );
       }
     });
 
   } catch (err) {
     try { await fs.rm(tempDir, { recursive: true, force: true }); } catch (cleanupErr) {}
-    res.status(500).json({ error: "Internal server error", details: err.message });
+    return next(createHttpError(500, "Internal server error", err.message));
   }
-});
+}));
 
 export default router;

@@ -1,19 +1,19 @@
 import express from "express";
-import { exec } from "child_process";
+import { asyncHandler, createHttpError } from "../middleware/errorHandler.js";
 
 const router = express.Router();
 
-router.post("/", async (req, res) => {
+router.post("/", asyncHandler(async (req, res, next) => {
   const { contractId, functionName, args } = req.body;
 
   if (!contractId || !functionName) {
-    return res.status(400).json({ error: "contractId and functionName are required" });
+    return next(createHttpError(400, "contractId and functionName are required"));
   }
 
   // Real implementation:
   // `soroban contract invoke --id {contractId} --source alice --network testnet -- {functionName} --name {args.name}`
   
-  console.log(\`Invoking \${contractId} -> \${functionName} with args:\`, args);
+  console.log(`Invoking ${contractId} -> ${functionName} with args:`, args);
 
   setTimeout(() => {
     // Simulated invocation response for the MVP
@@ -23,6 +23,6 @@ router.post("/", async (req, res) => {
       message: "Function invoked successfully"
     });
   }, 1000);
-});
+}));
 
 export default router;

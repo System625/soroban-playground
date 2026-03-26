@@ -1,7 +1,5 @@
 import express from "express";
-import { exec } from "child_process";
-import fs from "fs/promises";
-import path from "path";
+import { asyncHandler, createHttpError } from "../middleware/errorHandler.js";
 
 const router = express.Router();
 
@@ -36,15 +34,11 @@ function validateDeployRequest(body) {
   return null;
 }
 
-router.post("/", async (req, res) => {
+router.post("/", asyncHandler(async (req, res, next) => {
   // Validate request payload
   const validationError = validateDeployRequest(req.body);
   if (validationError) {
-    return res.status(400).json({
-      success: false,
-      status: "error",
-      ...validationError
-    });
+    return next(createHttpError(400, validationError.error, validationError.details));
   }
 
   const { wasmPath, contractName, network = "testnet" } = req.body;
@@ -75,6 +69,6 @@ router.post("/", async (req, res) => {
       message: `Contract "${contractName}" deployed successfully to ${network}`
     });
   }, 1500);
-});
+}));
 
 export default router;
