@@ -2,14 +2,24 @@ import express from "express";
 import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
+import Joi from "joi";
 
 const router = express.Router();
 
 router.post("/", async (req, res) => {
-  const { code } = req.body;
-  if (!code) {
-    return res.status(400).json({ error: "No code provided" });
+  const schema = Joi.object({
+    code: Joi.string().required().messages({
+      'any.required': 'Code is required',
+      'string.base': 'Code must be a string'
+    })
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    return res.status(400).json({ error: error.details[0].message });
   }
+
+  const { code } = req.body;
 
   // Define a temporary working directory for this compilation
   const tempDir = path.resolve(process.cwd(), ".tmp_compile_" + Date.now());
@@ -49,7 +59,7 @@ lto = true
 
     // Execute Soroban CLI (or cargo block)
     // Note: In a real server you might queue these or containerize. Here we spawn.
-    const command = \`cargo build --target wasm32-unknown-unknown --release\`;
+    const command = `cargo build --target wasm32-unknown-unknown --release`;
 
     exec(command, { cwd: tempDir, timeout: 30000 }, async (err, stdout, stderr) => {
       // Setup cleanup task
