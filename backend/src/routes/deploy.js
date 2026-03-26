@@ -1,7 +1,4 @@
 import express from "express";
-import { exec } from "child_process";
-import fs from "fs/promises";
-import path from "path";
 
 const router = express.Router();
 
@@ -29,12 +26,13 @@ function validateDeployRequest(body) {
   if (errors.length > 0) {
     return {
       error: "Validation failed",
-      details: errors
+      details: errors,
     };
   }
 
   return null;
 }
+
 
 router.post("/", async (req, res) => {
   // Validate request payload
@@ -43,7 +41,7 @@ router.post("/", async (req, res) => {
     return res.status(400).json({
       success: false,
       status: "error",
-      ...validationError
+      ...validationError,
     });
   }
 
@@ -62,7 +60,8 @@ router.post("/", async (req, res) => {
   setTimeout(() => {
     // Generate a random contract ID to simulate successful deploy
     // Stellar contract IDs start with 'C' and are 56 characters long
-    const contractId = "C" + Math.random().toString(36).substring(2, 54).toUpperCase();
+    const contractId =
+      "C" + Math.random().toString(36).substring(2, 54).toUpperCase();
 
     res.json({
       success: true,
@@ -72,7 +71,7 @@ router.post("/", async (req, res) => {
       network,
       wasmPath,
       deployedAt: new Date().toISOString(),
-      message: `Contract "${contractName}" deployed successfully to ${network}`
+      message: `Contract "${contractName}" deployed successfully to ${network}`,
     });
   }, 1500);
 });
