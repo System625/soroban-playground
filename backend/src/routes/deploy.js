@@ -2,52 +2,53 @@ import express from "express";
 import { exec } from "child_process";
 import fs from "fs/promises";
 import path from "path";
+import Joi from "joi";
 
 const router = express.Router();
 
 /**
- * Validates the deploy request payload
- * @param {Object} body - Request body
- * @returns {Object|null} - Validation error object or null if valid
+ * Joi schema for deploy request validation
  */
-function validateDeployRequest(body) {
-  const { wasmPath, contractName } = body;
-  const errors = [];
-
-  if (!wasmPath) {
-    errors.push("wasmPath is required");
-  } else if (typeof wasmPath !== "string") {
-    errors.push("wasmPath must be a string");
-  }
-
-  if (!contractName) {
-    errors.push("contractName is required");
-  } else if (typeof contractName !== "string") {
-    errors.push("contractName must be a string");
-  }
-
-  if (errors.length > 0) {
-    return {
-      error: "Validation failed",
-      details: errors
-    };
-  }
-
-  return null;
-}
+const deploySchema = Joi.object({
+  wasmPath: Joi.string()
+    .required()
+    .messages({
+      'any.required': 'wasmPath is required',
+      'string.empty': 'wasmPath cannot be empty'
+    }),
+  contractName: Joi.string()
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .min(3)
+    .max(50)
+    .required()
+    .messages({
+      'any.required': 'contractName is required',
+      'string.pattern.base': 'contractName must only contain alphanumeric characters, underscores, or hyphens',
+      'string.min': 'contractName must be at least 3 characters long',
+      'string.max': 'contractName must be at most 50 characters long'
+    }),
+  network: Joi.string()
+    .valid("testnet", "futurenet", "mainnet")
+    .default("testnet")
+    .messages({
+      'any.only': 'network must be one of: testnet, futurenet, mainnet'
+    })
+});
 
 router.post("/", async (req, res) => {
-  // Validate request payload
-  const validationError = validateDeployRequest(req.body);
-  if (validationError) {
+  // Validate request payload using Joi
+  const { error, value } = deploySchema.validate(req.body, { abortEarly: false });
+  
+  if (error) {
     return res.status(400).json({
       success: false,
       status: "error",
-      ...validationError
+      error: "Validation failed",
+      details: error.details.map(err => err.message)
     });
   }
 
-  const { wasmPath, contractName, network = "testnet" } = req.body;
+  const { wasmPath, contractName, network } = value;
 
   // In a real implementation this would receive a WASM buffer or path
   // from the compile step. We'll simulate receiving code or an existing compile job.
