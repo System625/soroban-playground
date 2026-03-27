@@ -21,7 +21,8 @@
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express-rate-limit": "^6.7.0",
-    "joi": "^18.1.1"
+    "joi": "^18.1.1",
+    "winston": "^3.18.3"
   },
   "jest": {
     "testEnvironment": "node"
